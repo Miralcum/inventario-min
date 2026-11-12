@@ -1,0 +1,77 @@
+{% extends "layout.html" %}
+{% block titulo %}Alertas{% endblock %}
+
+{% macro tabla_alertas(lista, color) %}
+<div class="table-responsive">
+  <table class="table table-product">
+    <thead>
+      <tr>
+        <th>Código</th>
+        <th>Pieza</th>
+        <th>Ubicación</th>
+        <th class="text-right">Existencia</th>
+        <th class="text-right">Mínimo</th>
+        <th class="th-width-250">Nivel respecto al mínimo</th>
+        {% if usuario_actual.rol == 'administrador' %}<th></th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in lista %}
+      {% set nivel = (p.cantidad / p.minimo * 100)|round|int if p.minimo else 0 %}
+      <tr>
+        <td class="text-dark font-weight-bold text-nowrap">{{ p.codigo }}</td>
+        <td class="text-dark">{{ p.nombre }}<br><span class="text-muted">{{ p.categoria }}</span></td>
+        <td>{{ p.ubicacion }}</td>
+        <td class="text-right font-weight-bold text-{{ 'danger' if color == 'danger' else 'dark' }}">{{ p.cantidad }}</td>
+        <td class="text-right">{{ p.minimo }}</td>
+        <td>
+          <div class="progress progress-md rounded-0" title="{{ nivel }} % del mínimo">
+            <div class="progress-bar bg-{{ color }}" role="progressbar" style="width: {{ [nivel, 100]|min }}%"
+                 aria-valuenow="{{ nivel }}" aria-valuemin="0" aria-valuemax="100"></div>
+          </div>
+        </td>
+        {% if usuario_actual.rol == 'administrador' %}
+        <td class="text-right text-nowrap">
+          <a class="btn btn-sm btn-primary btn-pill" href="{{ url_for('movimiento_nuevo', pieza=p.id, tipo='entrada') }}">Registrar entrada</a>
+        </td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endmacro %}
+
+{% block contenido %}
+{% if not agotadas and not bajas %}
+<div class="alert alert-success alert-icon" role="status">
+  <i class="mdi mdi-check-circle-outline"></i> No hay alertas: todas las piezas están por encima de su cantidad mínima.
+</div>
+{% endif %}
+
+{% if agotadas %}
+<div class="card card-default">
+  <div class="card-header align-items-center">
+    <h2><i class="mdi mdi-close-circle-outline text-danger"></i> Piezas agotadas</h2>
+    <span class="badge badge-danger">{{ agotadas|length }}</span>
+  </div>
+  <div class="card-body">
+    <p class="mb-4">No queda ninguna unidad. Los técnicos no pueden solicitarlas hasta que se registre una entrada.</p>
+    {{ tabla_alertas(agotadas, 'danger') }}
+  </div>
+</div>
+{% endif %}
+
+{% if bajas %}
+<div class="card card-default">
+  <div class="card-header align-items-center">
+    <h2><i class="mdi mdi-alert-outline text-warning"></i> Piezas con stock bajo</h2>
+    <span class="badge badge-warning">{{ bajas|length }}</span>
+  </div>
+  <div class="card-body">
+    <p class="mb-4">La existencia es igual o menor que la cantidad mínima. Conviene reabastecerlas pronto.</p>
+    {{ tabla_alertas(bajas, 'warning') }}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

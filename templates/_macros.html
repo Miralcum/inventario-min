@@ -1,0 +1,74 @@
+{# Piezas reutilizables, armadas con los componentes de la plantilla Mono #}
+
+{# Avisos de una acción: guardado, error, etc. #}
+{% macro avisos() -%}
+{% set iconos = {'success': 'mdi-check-circle-outline', 'danger': 'mdi-alert-circle-outline',
+                 'warning': 'mdi-alert-outline', 'info': 'mdi-information-outline'} %}
+{% with mensajes = get_flashed_messages(with_categories=true) %}
+  {% for categoria, texto in mensajes %}
+  <div class="alert alert-{{ categoria }} alert-icon alert-dismissible fade show" role="alert">
+    <i class="mdi {{ iconos.get(categoria, 'mdi-information-outline') }}"></i> {{ texto }}
+    <button type="button" class="close" data-dismiss="alert" aria-label="Cerrar aviso">
+      <span aria-hidden="true">&times;</span>
+    </button>
+  </div>
+  {% endfor %}
+{% endwith %}
+{%- endmacro %}
+
+{# Estado de una pieza: En stock, Stock bajo o Agotada #}
+{% macro estado_pieza(estado) -%}
+{% set clases = {'disponible': 'badge-success', 'bajo': 'badge-warning', 'agotada': 'badge-danger'} %}
+<span class="badge {{ clases[estado] }}">{{ estados_pieza[estado] }}</span>
+{%- endmacro %}
+
+{# Estado de una solicitud: Pendiente, Aprobada o Rechazada #}
+{% macro estado_solicitud(estado) -%}
+{% set clases = {'pendiente': 'badge-warning', 'aprobada': 'badge-success', 'rechazada': 'badge-danger'} %}
+<span class="badge {{ clases[estado] }}">{{ estados_solicitud[estado] }}</span>
+{%- endmacro %}
+
+{# Tipo de movimiento: Entrada o Salida #}
+{% macro tipo_movimiento(tipo) -%}
+{% if tipo == 'entrada' %}
+<span class="badge badge-success"><i class="mdi mdi-arrow-down-bold"></i> Entrada</span>
+{% else %}
+<span class="badge badge-secondary"><i class="mdi mdi-arrow-up-bold"></i> Salida</span>
+{% endif %}
+{%- endmacro %}
+
+{# Campo de formulario con su etiqueta, ayuda y mensaje de error #}
+{% macro campo(nombre, etiqueta, valor, errores, tipo='text', ayuda='', atributos='') -%}
+<div class="form-group">
+  <label for="{{ nombre }}">{{ etiqueta }}</label>
+  <input type="{{ tipo }}" class="form-control{% if errores.get(nombre) %} is-invalid{% endif %}"
+         id="{{ nombre }}" name="{{ nombre }}" value="{{ valor }}"
+         {% if errores.get(nombre) %}aria-invalid="true" aria-describedby="error-{{ nombre }}"{% endif %}
+         {{ atributos|safe }}>
+  {% if errores.get(nombre) %}
+  <div class="invalid-feedback" id="error-{{ nombre }}">{{ errores[nombre] }}</div>
+  {% elif ayuda %}
+  <span class="mt-2 d-block">{{ ayuda }}</span>
+  {% endif %}
+</div>
+{%- endmacro %}
+
+{# Botones del gerente para responder una solicitud pendiente #}
+{% macro responder_solicitud(s, volver) -%}
+<form method="post" action="{{ url_for('solicitud_aprobar', solicitud_id=s.id) }}" class="d-inline">
+  <input type="hidden" name="csrf" value="{{ token_csrf() }}">
+  <input type="hidden" name="volver" value="{{ volver }}">
+  <button type="submit" class="btn btn-sm btn-success btn-pill"
+          data-confirmar="Se entregarán {{ s.cantidad }} de {{ s.pieza }} a {{ s.tecnico }}. La existencia pasará de {{ s.existencia }} a {{ s.existencia - s.cantidad }} y se registrará la salida."
+          data-titulo="Autorizar la solicitud {{ s.id|folio }}"
+          data-boton="Autorizar salida" data-clase="btn-success"
+          {% if s.existencia < s.cantidad %}disabled title="No hay existencias suficientes"{% endif %}>
+    <i class="mdi mdi-check"></i> Aprobar
+  </button>
+</form>
+<button type="button" class="btn btn-sm btn-danger btn-pill"
+        data-rechazar="{{ url_for('solicitud_rechazar', solicitud_id=s.id) }}"
+        data-detalle="{{ s.id|folio }}: {{ s.cantidad }} de {{ s.pieza }}, solicitada por {{ s.tecnico }}.">
+  <i class="mdi mdi-close"></i> Rechazar
+</button>
+{%- endmacro %}

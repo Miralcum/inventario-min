@@ -1,0 +1,92 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import estado_solicitud, responder_solicitud with context %}
+{% block titulo %}{{ 'Mis solicitudes' if usuario_actual.rol == 'tecnico' else 'Solicitudes' }}{% endblock %}
+
+{% block contenido %}
+{% set rol = usuario_actual.rol %}
+<div class="card card-default">
+  <div class="card-header align-items-center">
+    <h2>{{ 'Mis solicitudes de material' if rol == 'tecnico' else 'Solicitudes de material' }}</h2>
+    {% if rol == 'tecnico' %}
+    <a href="{{ url_for('solicitud_nueva') }}" class="btn btn-primary btn-pill">
+      <i class="mdi mdi-plus"></i> Nueva solicitud
+    </a>
+    {% endif %}
+  </div>
+  <div class="card-body">
+
+    <!-- Filtro por estado -->
+    <ul class="nav nav-pills mb-4" aria-label="Filtrar por estado">
+      <li class="nav-item">
+        <a class="nav-link {{ 'active' if not estado }}" href="{{ url_for('solicitudes') }}">Todas</a>
+      </li>
+      {% for clave, etiqueta in [('pendiente', 'Pendientes'), ('aprobada', 'Aprobadas'), ('rechazada', 'Rechazadas')] %}
+      <li class="nav-item">
+        <a class="nav-link {{ 'active' if estado == clave }}" href="{{ url_for('solicitudes', estado=clave) }}">{{ etiqueta }}</a>
+      </li>
+      {% endfor %}
+    </ul>
+
+    {% if solicitudes %}
+    <div class="table-responsive">
+      <table class="table table-product">
+        <thead>
+          <tr>
+            <th>Folio</th>
+            {% if rol != 'tecnico' %}<th>Solicitante</th>{% endif %}
+            <th>Pieza y uso</th>
+            <th class="text-right">Cantidad</th>
+            <th>Estado y respuesta</th>
+            {% if rol == 'gerente' %}<th class="text-right">Responder</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in solicitudes %}
+          <tr>
+            <td class="text-nowrap">
+              <span class="text-dark font-weight-bold">{{ s.id|folio }}</span><br>
+              <small>{{ s.fecha|fecha }}</small>
+            </td>
+            {% if rol != 'tecnico' %}<td>{{ s.tecnico }}</td>{% endif %}
+            <td>
+              <span class="text-dark font-weight-bold">{{ s.codigo }}</span> <span class="text-dark">{{ s.pieza }}</span><br>
+              <small>Para: {{ s.motivo }}</small>
+            </td>
+            <td class="text-right text-nowrap">
+              <span class="text-dark font-weight-bold">{{ s.cantidad }}</span>
+              {% if rol == 'gerente' and s.estado == 'pendiente' %}
+              <br><small class="{{ 'text-danger font-weight-bold' if s.existencia < s.cantidad }}">Hay {{ s.existencia }} en existencia</small>
+              {% endif %}
+            </td>
+            <td>
+              {{ estado_solicitud(s.estado) }}
+              {% if s.estado == 'pendiente' %}
+              <br><small>En espera de autorización del gerente</small>
+              {% elif s.estado == 'aprobada' %}
+              <br><small>{{ s.gerente }}, {{ s.fecha_respuesta|fecha }}</small>
+              {% else %}
+              <br><small>{{ s.gerente }}, {{ s.fecha_respuesta|fecha }}</small>
+              <br><small class="text-dark">Motivo: {{ s.comentario }}</small>
+              {% endif %}
+            </td>
+            {% if rol == 'gerente' %}
+            <td class="text-nowrap text-right">
+              {% if s.estado == 'pendiente' %}{{ responder_solicitud(s, 'solicitudes') }}{% endif %}
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info alert-icon mb-0" role="status">
+      <i class="mdi mdi-information-outline"></i>
+      {% if estado %}No hay solicitudes con ese estado.
+      {% elif rol == 'tecnico' %}Todavía no has pedido material. Usa «Nueva solicitud» cuando necesites una pieza.
+      {% else %}Todavía no hay solicitudes de material.{% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

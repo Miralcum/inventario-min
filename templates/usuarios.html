@@ -1,0 +1,84 @@
+{% extends "layout.html" %}
+{% block titulo %}Usuarios{% endblock %}
+
+{% block contenido %}
+{% set colores = {'administrador': 'badge-primary', 'gerente': 'badge-info', 'tecnico': 'badge-secondary'} %}
+<div class="card card-default">
+  <div class="card-header align-items-center">
+    <h2>Usuarios del sistema</h2>
+    <a href="{{ url_for('usuario_nuevo') }}" class="btn btn-primary btn-pill">
+      <i class="mdi mdi-account-plus-outline"></i> Agregar usuario
+    </a>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-product">
+        <thead>
+          <tr>
+            <th>Usuario</th>
+            <th>Nombre</th>
+            <th>Tipo</th>
+            <th>Estado</th>
+            <th class="text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in usuarios %}
+          <tr>
+            <td class="text-dark font-weight-bold">{{ u.usuario }}</td>
+            <td class="text-dark">{{ u.nombre }}{% if u.id == usuario_actual.id %} <span class="text-muted">(tú)</span>{% endif %}</td>
+            <td><span class="badge {{ colores[u.rol] }}">{{ roles[u.rol] }}</span></td>
+            <td>
+              {% if u.activo %}<span class="badge badge-outline-success">Activo</span>
+              {% else %}<span class="badge badge-outline-danger">Inactivo</span>{% endif %}
+            </td>
+            <td class="text-right text-nowrap">
+              <a class="btn btn-sm btn-outline-primary btn-pill" href="{{ url_for('usuario_editar', usuario_id=u.id) }}">
+                <i class="mdi mdi-pencil"></i> Editar
+              </a>
+              {% if u.id != usuario_actual.id %}
+              <form method="post" action="{{ url_for('usuario_estado', usuario_id=u.id) }}" class="d-inline">
+                <input type="hidden" name="csrf" value="{{ token_csrf() }}">
+                {% if u.activo %}
+                <button type="submit" class="btn btn-sm btn-outline-danger btn-pill"
+                        data-confirmar="{{ u.nombre }} ya no podrá iniciar sesión. Su historial de solicitudes y movimientos se conserva, y puedes volver a activar la cuenta después."
+                        data-titulo="Desactivar la cuenta {{ u.usuario }}" data-boton="Desactivar cuenta" data-clase="btn-danger">
+                  <i class="mdi mdi-account-off-outline"></i> Desactivar
+                </button>
+                {% else %}
+                <button type="submit" class="btn btn-sm btn-outline-success btn-pill">
+                  <i class="mdi mdi-account-check-outline"></i> Activar
+                </button>
+                {% endif %}
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Qué puede hacer cada tipo de usuario -->
+<div class="card card-default">
+  <div class="card-header"><h2>Permisos por tipo de usuario</h2></div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-lg-4 mb-4 mb-lg-0">
+        <h5 class="text-dark mb-2"><span class="badge badge-primary">Administrador</span></h5>
+        <p>Registra, modifica y elimina piezas; registra entradas y salidas; administra los usuarios y consulta reportes.</p>
+      </div>
+      <div class="col-lg-4 mb-4 mb-lg-0">
+        <h5 class="text-dark mb-2"><span class="badge badge-info">Gerente</span></h5>
+        <p>Consulta el inventario y los movimientos, autoriza o rechaza las solicitudes de material y genera reportes.</p>
+      </div>
+      <div class="col-lg-4">
+        <h5 class="text-dark mb-2"><span class="badge badge-secondary">Técnico</span></h5>
+        <p>Consulta las piezas disponibles, solicita material y revisa el estado de sus propias solicitudes.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

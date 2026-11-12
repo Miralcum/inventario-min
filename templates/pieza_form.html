@@ -1,0 +1,89 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import campo with context %}
+{% block titulo %}{{ 'Editar pieza' if pieza else 'Agregar pieza' }}{% endblock %}
+
+{% block contenido %}
+<div class="row">
+  <div class="col-xl-8">
+    <div class="card card-default">
+      <div class="card-header">
+        <h2>{{ 'Editar ' ~ pieza.codigo if pieza else 'Datos de la pieza nueva' }}</h2>
+      </div>
+      <div class="card-body">
+        {% if errores %}
+        <div class="alert alert-danger alert-icon" role="alert">
+          <i class="mdi mdi-alert-circle-outline"></i> No se guardó. Revisa los campos marcados en rojo.
+        </div>
+        {% endif %}
+
+        <form method="post">
+          <input type="hidden" name="csrf" value="{{ token_csrf() }}">
+
+          <div class="form-row">
+            <div class="col-md-4">
+              {{ campo('codigo', 'Código', datos.codigo, errores, ayuda='Ejemplo: P025',
+                       atributos='maxlength="12" required autocomplete="off"') }}
+            </div>
+            <div class="col-md-8">
+              {{ campo('nombre', 'Nombre', datos.nombre, errores,
+                       atributos='maxlength="80" required autocomplete="off"') }}
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="categoria">Categoría</label>
+                <select class="form-control{% if errores.categoria %} is-invalid{% endif %}" id="categoria" name="categoria" required>
+                  <option value="">Elige una categoría</option>
+                  {% for c in categorias %}
+                  <option value="{{ c }}" {% if c == datos.categoria %}selected{% endif %}>{{ c }}</option>
+                  {% endfor %}
+                </select>
+                {% if errores.categoria %}<div class="invalid-feedback">{{ errores.categoria }}</div>{% endif %}
+              </div>
+            </div>
+            <div class="col-md-6">
+              {{ campo('ubicacion', 'Ubicación en el almacén', datos.ubicacion, errores,
+                       ayuda='Ejemplo: Pasillo A, estante 1', atributos='maxlength="60" required autocomplete="off"') }}
+            </div>
+          </div>
+
+          <div class="form-row">
+            {% if not pieza %}
+            <div class="col-md-6">
+              {{ campo('cantidad', 'Cantidad inicial', datos.cantidad, errores, tipo='number',
+                       ayuda='Unidades que hay hoy en el almacén. Se registra como entrada.',
+                       atributos='min="0" max="100000" step="1" inputmode="numeric" required') }}
+            </div>
+            {% endif %}
+            <div class="col-md-6">
+              {{ campo('minimo', 'Cantidad mínima', datos.minimo, errores, tipo='number',
+                       ayuda='Al llegar a esta cantidad se muestra una alerta de stock bajo.',
+                       atributos='min="0" max="100000" step="1" inputmode="numeric" required') }}
+            </div>
+            {% if pieza %}
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="existencia">Existencia actual</label>
+                <input type="text" class="form-control" id="existencia" value="{{ pieza.cantidad }}" disabled>
+                <span class="mt-2 d-block">
+                  Para cambiarla,
+                  <a class="text-primary font-weight-bold" href="{{ url_for('movimiento_nuevo', pieza=pieza.id) }}">registra una entrada o salida</a>:
+                  así queda en el historial.
+                </span>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+
+          <div class="form-footer mt-6">
+            <button type="submit" class="btn btn-primary btn-pill">{{ 'Guardar cambios' if pieza else 'Registrar pieza' }}</button>
+            <a href="{{ url_for('piezas') }}" class="btn btn-light btn-pill">Cancelar</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

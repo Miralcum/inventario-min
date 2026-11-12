@@ -1,0 +1,257 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import estado_pieza with context %}
+{% block titulo %}Reportes{% endblock %}
+
+{% block contenido %}
+{% set entradas = resumen_movimientos.get('entrada') %}
+{% set salidas = resumen_movimientos.get('salida') %}
+{% set max_unidades = por_categoria|map(attribute='unidades')|max if por_categoria else 1 %}
+
+<!-- Periodo y descargas (no se imprimen) -->
+<div class="card card-default no-imprimir">
+  <div class="card-header">
+    <h2>Generar reporte</h2>
+  </div>
+  <div class="card-body">
+    <form method="get" action="{{ url_for('reportes') }}">
+      <div class="form-row align-items-end">
+        <div class="form-group col-sm-6 col-lg-3">
+          <label for="desde">Desde</label>
+          <input type="date" class="form-control" id="desde" name="desde" value="{{ desde }}" max="{{ hasta }}">
+        </div>
+        <div class="form-group col-sm-6 col-lg-3">
+          <label for="hasta">Hasta</label>
+          <input type="date" class="form-control" id="hasta" name="hasta" value="{{ hasta }}">
+        </div>
+        <div class="form-group col-lg-6">
+          <button type="submit" class="btn btn-primary btn-pill mr-2 mb-2">Actualizar periodo</button>
+          <button type="button" class="btn btn-outline-primary btn-pill mb-2" data-imprimir>
+            <i class="mdi mdi-printer"></i> Imprimir o guardar PDF
+          </button>
+        </div>
+      </div>
+    </form>
+    <a class="btn btn-sm btn-outline-success btn-pill mr-2" href="{{ url_for('reporte_inventario_csv') }}">
+      <i class="mdi mdi-download"></i> Descargar inventario (CSV)
+    </a>
+    <a class="btn btn-sm btn-outline-success btn-pill" href="{{ url_for('reporte_movimientos_csv', desde=desde, hasta=hasta) }}">
+      <i class="mdi mdi-download"></i> Descargar movimientos del periodo (CSV)
+    </a>
+  </div>
+</div>
+
+<!-- Encabezado del reporte -->
+<div class="card card-default">
+  <div class="px-6 py-4">
+    <h3 class="text-dark mb-2">Reporte de inventario</h3>
+    <p class="mb-0">
+      {{ empresa }} ({{ siglas }}). Periodo de movimientos y solicitudes: del {{ desde.strftime('%d/%m/%Y') }}
+      al {{ hasta.strftime('%d/%m/%Y') }}. Generado el {{ generado }} por {{ usuario_actual.nombre }}
+      ({{ roles[usuario_actual.rol] }}).
+    </p>
+  </div>
+</div>
+
+<!-- Estado actual del inventario -->
+<div class="row">
+  <div class="col-xl-3 col-md-6">
+    <div class="card card-default">
+      <div class="d-flex p-5">
+        <div class="icon-md bg-primary rounded-circle mr-3"><i class="mdi mdi-package-variant-closed"></i></div>
+        <div class="text-left">
+          <span class="h2 d-block">{{ conteo.total }}</span>
+          <p>Piezas en catálogo</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="card card-default">
+      <div class="d-flex p-5">
+        <div class="icon-md bg-success rounded-circle mr-3"><i class="mdi mdi-check-circle-outline"></i></div>
+        <div class="text-left">
+          <span class="h2 d-block">{{ conteo.disponibles }}</span>
+          <p>En stock</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="card card-default">
+      <div class="d-flex p-5">
+        <div class="icon-md bg-warning rounded-circle mr-3"><i class="mdi mdi-alert-outline"></i></div>
+        <div class="text-left">
+          <span class="h2 d-block">{{ conteo.bajas }}</span>
+          <p>Con stock bajo</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="card card-default">
+      <div class="d-flex p-5">
+        <div class="icon-md bg-danger rounded-circle mr-3"><i class="mdi mdi-close-circle-outline"></i></div>
+        <div class="text-left">
+          <span class="h2 d-block">{{ conteo.agotadas }}</span>
+          <p>Agotadas</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <!-- Inventario por categoría -->
+  <div class="col-xl-7">
+    <div class="card card-default">
+      <div class="card-header"><h2>Inventario por categoría</h2></div>
+      <div class="card-body">
+        <table class="table table-product">
+          <thead>
+            <tr><th>Categoría</th><th class="text-right">Piezas</th><th class="text-right">Unidades</th><th class="text-right">Alertas</th><th class="th-width-250"></th></tr>
+          </thead>
+          <tbody>
+            {% for c in por_categoria %}
+            <tr>
+              <td class="text-dark">{{ c.categoria }}</td>
+              <td class="text-right">{{ c.piezas }}</td>
+              <td class="text-right">{{ c.unidades }}</td>
+              <td class="text-right {{ 'text-danger font-weight-bold' if c.alertas }}">{{ c.alertas }}</td>
+              <td>
+                <div class="progress progress-md rounded-0">
+                  <div class="progress-bar" role="progressbar" style="width: {{ (c.unidades / max_unidades * 100)|round|int if max_unidades else 0 }}%"
+                       aria-valuenow="{{ c.unidades }}" aria-valuemin="0" aria-valuemax="{{ max_unidades }}"></div>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Movimientos y solicitudes del periodo -->
+  <div class="col-xl-5">
+    <div class="card card-default">
+      <div class="card-header"><h2>Movimientos del periodo</h2></div>
+      <div class="card-body">
+        <table class="table table-product">
+          <thead>
+            <tr><th>Tipo</th><th class="text-right">Movimientos</th><th class="text-right">Unidades</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-dark">Entradas</td>
+              <td class="text-right">{{ entradas.movimientos if entradas else 0 }}</td>
+              <td class="text-right">{{ entradas.unidades if entradas else 0 }}</td>
+            </tr>
+            <tr>
+              <td class="text-dark">Salidas</td>
+              <td class="text-right">{{ salidas.movimientos if salidas else 0 }}</td>
+              <td class="text-right">{{ salidas.unidades if salidas else 0 }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card card-default">
+      <div class="card-header"><h2>Solicitudes del periodo</h2></div>
+      <div class="card-body">
+        <table class="table table-product">
+          <thead>
+            <tr><th>Estado</th><th class="text-right">Solicitudes</th></tr>
+          </thead>
+          <tbody>
+            {% for clave, etiqueta in [('pendiente', 'Pendientes'), ('aprobada', 'Aprobadas'), ('rechazada', 'Rechazadas')] %}
+            <tr>
+              <td class="text-dark">{{ etiqueta }}</td>
+              <td class="text-right">{{ solicitudes_por_estado.get(clave, 0) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <!-- Quién utiliza los materiales -->
+  <div class="col-xl-6">
+    <div class="card card-default">
+      <div class="card-header"><h2>Material entregado por técnico</h2></div>
+      <div class="card-body">
+        {% if consumo_por_tecnico %}
+        <table class="table table-product">
+          <thead>
+            <tr><th>Técnico</th><th class="text-right">Solicitudes autorizadas</th><th class="text-right">Unidades</th></tr>
+          </thead>
+          <tbody>
+            {% for t in consumo_por_tecnico %}
+            <tr><td class="text-dark">{{ t.nombre }}</td><td class="text-right">{{ t.solicitudes }}</td><td class="text-right">{{ t.unidades }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="mb-0">En este periodo no se autorizó ninguna salida de material.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Piezas con más salidas -->
+  <div class="col-xl-6">
+    <div class="card card-default">
+      <div class="card-header"><h2>Piezas más solicitadas</h2></div>
+      <div class="card-body">
+        {% if mas_solicitadas %}
+        <table class="table table-product">
+          <thead>
+            <tr><th>Código</th><th>Pieza</th><th class="text-right">Unidades entregadas</th></tr>
+          </thead>
+          <tbody>
+            {% for p in mas_solicitadas %}
+            <tr><td class="text-dark font-weight-bold">{{ p.codigo }}</td><td>{{ p.nombre }}</td><td class="text-right">{{ p.unidades }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="mb-0">En este periodo no se entregó material por solicitud.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Piezas que requieren reabastecimiento -->
+<div class="card card-default">
+  <div class="card-header"><h2>Piezas agotadas o con stock bajo</h2></div>
+  <div class="card-body">
+    {% if alertas %}
+    <table class="table table-product">
+      <thead>
+        <tr><th>Código</th><th>Pieza</th><th>Categoría</th><th>Ubicación</th><th class="text-right">Existencia</th><th class="text-right">Mínimo</th><th class="text-right">Faltan para el mínimo</th><th>Estado</th></tr>
+      </thead>
+      <tbody>
+        {% for p in alertas %}
+        <tr>
+          <td class="text-dark font-weight-bold">{{ p.codigo }}</td>
+          <td class="text-dark">{{ p.nombre }}</td>
+          <td>{{ p.categoria }}</td>
+          <td>{{ p.ubicacion }}</td>
+          <td class="text-right">{{ p.cantidad }}</td>
+          <td class="text-right">{{ p.minimo }}</td>
+          <td class="text-right">{{ p.minimo - p.cantidad }}</td>
+          <td>{{ estado_pieza(p.estado) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="mb-0">Ninguna pieza está agotada ni con stock bajo.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

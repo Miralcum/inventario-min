@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "_macros.html" import avisos with context %}
+{% block titulo %}Iniciar sesión{% endblock %}
+{% block clase_body %}bg-light-gray{% endblock %}
+
+{% block cuerpo %}
+<div class="container d-flex align-items-center justify-content-center" style="min-height: 100vh">
+  <div class="d-flex flex-column justify-content-between">
+    <div class="row justify-content-center">
+      <div class="col-lg-6 col-md-10">
+        <div class="card card-default mb-0">
+          <div class="card-header pb-0">
+            <div class="app-brand w-100 d-flex justify-content-center border-bottom-0">
+              <a class="w-auto pl-0" href="{{ url_for('login') }}">
+                <i class="mdi mdi-settings brand-icono"></i>
+                <span class="brand-name text-dark">{{ siglas }}</span>
+              </a>
+            </div>
+          </div>
+          <div class="card-body px-5 pb-5 pt-0">
+            <h4 class="text-dark mb-2 text-center">Control de inventario</h4>
+            <p class="text-center mb-5">{{ empresa }}</p>
+
+            {{ avisos() }}
+            {% if error %}
+            <div class="alert alert-danger alert-icon" role="alert">
+              <i class="mdi mdi-alert-circle-outline"></i> {{ error }}
+            </div>
+            {% endif %}
+
+            <form method="post" action="{{ url_for('login') }}">
+              <input type="hidden" name="csrf" value="{{ token_csrf() }}">
+              <div class="row">
+                <div class="form-group col-md-12 mb-4">
+                  <label for="usuario">Usuario</label>
+                  <input type="text" class="form-control input-lg" id="usuario" name="usuario"
+                         value="{{ usuario }}" placeholder="Tu nombre de usuario"
+                         autocomplete="username" autocapitalize="none" required autofocus>
+                </div>
+                <div class="form-group col-md-12">
+                  <label for="contrasena">Contraseña</label>
+                  <input type="password" class="form-control input-lg" id="contrasena" name="contrasena"
+                         placeholder="Tu contraseña" autocomplete="current-password" required>
+                </div>
+                <div class="col-md-12">
+                  <button type="submit" class="btn btn-primary btn-pill mb-4 mt-2">Iniciar sesión</button>
+                  <p>Entran administradores, gerentes y técnicos. Si olvidaste tu contraseña,
+                     pide al administrador que la restablezca.</p>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

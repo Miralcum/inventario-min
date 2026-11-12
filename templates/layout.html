@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+{% from "_macros.html" import avisos with context %}
+{% block clase_body %}navbar-fixed sidebar-fixed{% endblock %}
+
+{% block cuerpo %}
+{% set rol = usuario_actual.rol %}
+{% set pagina = request.endpoint %}
+<div class="wrapper">
+
+  <!-- ====================================
+    ——— MENÚ LATERAL (plantilla Mono)
+  ===================================== -->
+  <aside class="left-sidebar sidebar-dark" id="left-sidebar">
+    <div id="sidebar" class="sidebar">
+      <div class="app-brand">
+        <a href="{{ url_for('inicio') }}" title="{{ empresa }}">
+          <i class="mdi mdi-settings brand-icono"></i>
+          <span class="brand-name">{{ siglas }}</span>
+        </a>
+      </div>
+
+      <div class="sidebar-left" data-simplebar style="height: 100%;">
+        <ul class="nav sidebar-inner" id="sidebar-menu">
+          <li {% if pagina == 'inicio' %}class="active"{% endif %}>
+            <a class="sidenav-item-link" href="{{ url_for('inicio') }}">
+              <i class="mdi mdi-view-dashboard-outline"></i>
+              <span class="nav-text">Dashboard</span>
+            </a>
+          </li>
+
+          <li class="section-title">Inventario</li>
+
+          <li {% if pagina in ('piezas', 'pieza_nueva', 'pieza_editar') %}class="active"{% endif %}>
+            <a class="sidenav-item-link" href="{{ url_for('piezas') }}">
+              <i class="mdi mdi-package-variant-closed"></i>
+              <span class="nav-text">Piezas</span>
+            </a>
+          </li>
+
+          <li {% if pagina == 'alertas' %}class="active"{% endif %}>
+            <a class="sidenav-item-link" href="{{ url_for('alertas') }}">
+              <i class="mdi mdi-alert-outline"></i>
+              <span class="nav-text">Alertas</span>
+              {% if total_alertas %}<span class="badge badge-danger">{{ total_alertas }}</span>{% endif %}
+            </a>
+          </li>
+
+          <li {% if pagina in ('solicitudes', 'solicitud_nueva') %}class="active"{% endif %}>
+            <a class="sidenav-item-link" href="{{ url_for('solicitudes') }}">
+              <i class="mdi mdi-clipboard-text-outline"></i>
+              <span class="nav-text">{{ 'Mis solicitudes' if rol == 'tecnico' else 'Solicitudes' }}</span>
+              {% if total_pendientes %}<span class="badge badge-warning">{{ total_pendientes }}</span>{% endif %}
+            </a>
+          </li>
+
+          {% if rol in ('administrador', 'gerente') %}
+          <li {% if pagina in ('movimientos', 'movimiento_nuevo') %}class="active"{% endif %}>
+            <a class="sidenav-item-link" href="{{ url_for('movimientos') }}">
+              <i class="mdi mdi-swap-horizontal"></i>
+              <span class="nav-text">Movimientos</span>
+            </a>
+          </li>
+
+          <li class="section-title">Administración</li>
+
+          <li {% if pagina == 'reportes' %}class="active"{% endif %}>
+            <a class="sidenav-item-link" href="{{ url_for('reportes') }}">
+              <i class="mdi mdi-chart-bar"></i>
+              <span class="nav-text">Reportes</span>
+            </a>
+          </li>
+          {% endif %}
+
+          {% if rol == 'administrador' %}
+          <li {% if pagina in ('usuarios', 'usuario_nuevo', 'usuario_editar') %}class="active"{% endif %}>
+            <a class="sidenav-item-link" href="{{ url_for('usuarios') }}">
+              <i class="mdi mdi-account-multiple-outline"></i>
+              <span class="nav-text">Usuarios</span>
+            </a>
+          </li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ====================================
+    ——— PÁGINA
+  ===================================== -->
+  <div class="page-wrapper">
+
+    <header class="main-header" id="header">
+      <nav class="navbar navbar-expand-lg navbar-light" id="navbar">
+        <button id="sidebar-toggler" class="sidebar-toggle">
+          <span class="sr-only">Mostrar u ocultar el menú</span>
+        </button>
+
+        <span class="page-title">{% block titulo_pagina %}{{ self.titulo() }}{% endblock %}</span>
+
+        <div class="navbar-right">
+          <ul class="nav navbar-nav align-items-center">
+            <li class="d-none d-md-flex align-items-center text-dark mr-2">
+              <i class="mdi mdi-map-marker mdi-18px mr-1"></i> Almacén principal
+            </li>
+
+            <!-- Campana: alertas de piezas agotadas o con stock bajo -->
+            <li class="custom-dropdown">
+              <button class="notify-toggler custom-dropdown-toggler" title="Alertas de inventario">
+                <i class="mdi mdi-bell-outline icon"></i>
+                {% if total_alertas %}<span class="badge badge-xs rounded-circle">{{ total_alertas }}</span>{% endif %}
+                <span class="sr-only">Alertas de inventario</span>
+              </button>
+              <div class="dropdown-notify">
+                <header>
+                  <div class="nav nav-underline">
+                    <span class="nav-item nav-link active">Alertas de inventario ({{ total_alertas }})</span>
+                  </div>
+                </header>
+                <div data-simplebar style="height: 325px;">
+                  {% for p in campana_alertas %}
+                  <div class="media media-sm p-4 mb-0{% if p.estado == 'agotada' %} bg-light{% endif %}">
+                    <div class="media-sm-wrapper {{ 'bg-danger' if p.estado == 'agotada' else 'bg-warning' }}">
+                      <a href="{{ url_for('alertas') }}">
+                        <i class="mdi {{ 'mdi-close-circle-outline' if p.estado == 'agotada' else 'mdi-alert-outline' }}"></i>
+                      </a>
+                    </div>
+                    <div class="media-body">
+                      <a href="{{ url_for('alertas') }}">
+                        <span class="title mb-0">{{ p.nombre }}</span>
+                        <span class="discribe">
+                          {% if p.estado == 'agotada' %}Agotada. Mínimo requerido: {{ p.minimo }}.
+                          {% else %}Stock bajo: quedan {{ p.cantidad }} y el mínimo es {{ p.minimo }}.{% endif %}
+                        </span>
+                        <span class="time">{{ p.codigo }} · {{ p.ubicacion }}</span>
+                      </a>
+                    </div>
+                  </div>
+                  {% else %}
+                  <p class="p-4 mb-0">No hay alertas: todas las piezas están por encima de su mínimo.</p>
+                  {% endfor %}
+                </div>
+                <footer class="border-top dropdown-notify-footer">
+                  <div class="d-flex justify-content-between align-items-center py-2 px-4">
+                    <span>Agotadas o con stock bajo</span>
+                    <a href="{{ url_for('alertas') }}" class="text-primary font-weight-bold">Ver todas</a>
+                  </div>
+                </footer>
+              </div>
+            </li>
+
+            <!-- Cuenta del usuario -->
+            <li class="dropdown user-menu">
+              <button class="dropdown-toggle nav-link" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                <span class="avatar-iniciales" aria-hidden="true">{{ usuario_actual.nombre|iniciales }}</span>
+                <span class="d-none d-lg-inline-block">{{ usuario_actual.nombre.split()[:2]|join(' ') }}</span>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-right">
+                <li>
+                  <span class="dropdown-link-item cuenta-resumen">
+                    <i class="mdi mdi-account-outline"></i>
+                    <span class="nav-text">{{ usuario_actual.usuario }}</span>
+                    <span class="badge badge-pill badge-primary">{{ roles[rol] }}</span>
+                  </span>
+                </li>
+                <li class="dropdown-footer">
+                  <form method="post" action="{{ url_for('logout') }}">
+                    <input type="hidden" name="csrf" value="{{ token_csrf() }}">
+                    <button type="submit" class="dropdown-link-item boton-salir">
+                      <i class="mdi mdi-logout"></i> Cerrar sesión
+                    </button>
+                  </form>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+      </nav>
+    </header>
+
+    <div class="content-wrapper">
+      <div class="content">
+        {{ avisos() }}
+        {% block contenido %}{% endblock %}
+      </div>
+    </div>
+
+    <footer class="footer mt-auto">
+      <div class="copyright bg-white">
+        <p>
+          {{ siglas }}, {{ empresa }}. Control de inventario de piezas y refacciones.
+          Diseño: plantilla <a class="text-primary" href="https://themefisher.com/" target="_blank" rel="noopener">Mono</a> de Themefisher.
+        </p>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<!-- Ventana para confirmar acciones (eliminar, autorizar, desactivar) -->
+<div class="modal fade" id="modal-confirmar" tabindex="-1" role="dialog" aria-labelledby="modal-confirmar-titulo" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modal-confirmar-titulo">Confirmar</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body" id="modal-confirmar-texto"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light btn-pill" data-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary btn-pill" id="modal-confirmar-boton">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if rol == 'gerente' %}
+<!-- Ventana para rechazar una solicitud con su motivo -->
+<div class="modal fade" id="modal-rechazar" tabindex="-1" role="dialog" aria-labelledby="modal-rechazar-titulo" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <form class="modal-content" method="post" id="formulario-rechazar">
+      <input type="hidden" name="csrf" value="{{ token_csrf() }}">
+      <input type="hidden" name="volver" value="{{ 'inicio' if pagina == 'inicio' else 'solicitudes' }}">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modal-rechazar-titulo">Rechazar solicitud</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-4" id="modal-rechazar-detalle"></p>
+        <div class="form-group mb-0">
+          <label for="comentario-rechazo">Motivo del rechazo</label>
+          <textarea class="form-control" id="comentario-rechazo" name="comentario" rows="3"
+                    minlength="5" maxlength="200" required
+                    placeholder="El técnico verá este motivo"></textarea>
+          <span class="mt-2 d-block">Las existencias no cambian al rechazar.</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light btn-pill" data-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-danger btn-pill">Rechazar solicitud</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

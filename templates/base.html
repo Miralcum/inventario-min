@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}{% endblock %} | {{ siglas }} Control de inventario</title>
+
+  <!-- Diseño: plantilla Mono (Themefisher, licencia MIT) -->
+  <meta name="theme-name" content="mono">
+
+  <!-- Íconos y barras de desplazamiento de la plantilla -->
+  <link href="{{ url_for('static', filename='plugins/material/css/materialdesignicons.min.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='plugins/simplebar/simplebar.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='plugins/nprogress/nprogress.css') }}" rel="stylesheet">
+
+  <!-- Hoja de estilos de la plantilla (sin modificar) -->
+  <link id="main-css-href" rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <!-- Fuentes locales de la plantilla y unos cuantos ajustes propios -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/inventario.css', v=version) }}">
+
+  <link href="{{ url_for('static', filename='images/favicon.png') }}" rel="shortcut icon">
+  <script src="{{ url_for('static', filename='plugins/nprogress/nprogress.js') }}"></script>
+</head>
+
+<body class="{% block clase_body %}{% endblock %}" id="body">
+  <script src="{{ url_for('static', filename='js/progreso.js', v=version) }}"></script>
+
+  {% block cuerpo %}{% endblock %}
+
+  <script src="{{ url_for('static', filename='plugins/jquery/jquery.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='plugins/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='plugins/simplebar/simplebar.min.js') }}"></script>
+  {% block scripts_extra %}{% endblock %}
+  <script src="{{ url_for('static', filename='js/mono.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/inventario.js', v=version) }}"></script>
+</body>
+</html>

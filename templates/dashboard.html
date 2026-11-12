@@ -1,0 +1,294 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import estado_solicitud, tipo_movimiento, responder_solicitud with context %}
+{% block titulo %}Dashboard{% endblock %}
+
+{% block scripts_extra %}
+<script src="{{ url_for('static', filename='plugins/apexcharts/apexcharts.min.js') }}"></script>
+{% endblock %}
+
+{% block contenido %}
+{% set rol = usuario_actual.rol %}
+
+{# Accesos rápidos según el tipo de usuario: (ruta, parámetros, título, detalle, ícono, color) #}
+{% if rol == 'administrador' %}
+  {% set accesos = [
+    ('piezas', {}, 'Gestionar inventario', 'Consultar, editar y dar de baja piezas', 'mdi-package-variant-closed', 'primary'),
+    ('pieza_nueva', {}, 'Agregar pieza', 'Registrar una pieza nueva en el catálogo', 'mdi-plus-circle-outline', 'success'),
+    ('movimiento_nuevo', {'tipo': 'entrada'}, 'Recibir inventario', 'Registrar la entrada de material', 'mdi-inbox-arrow-down', 'info'),
+    ('usuarios', {}, 'Usuarios', 'Crear cuentas y asignar permisos', 'mdi-account-multiple-outline', 'secondary'),
+  ] %}
+{% elif rol == 'gerente' %}
+  {% set accesos = [
+    ('solicitudes', {'estado': 'pendiente'}, 'Autorizar solicitudes', total_pendientes ~ (' pendiente' if total_pendientes == 1 else ' pendientes') ~ ' de respuesta', 'mdi-clipboard-check-outline', 'primary'),
+    ('piezas', {}, 'Consultar inventario', 'Existencias y ubicación de cada pieza', 'mdi-package-variant-closed', 'success'),
+    ('movimientos', {}, 'Movimientos', 'Entradas y salidas del almacén', 'mdi-swap-horizontal', 'info'),
+    ('reportes', {}, 'Reportes', 'Resumen para imprimir o descargar', 'mdi-chart-bar', 'secondary'),
+  ] %}
+{% else %}
+  {% set accesos = [
+    ('piezas', {}, 'Consultar piezas', 'Buscar por código, nombre o ubicación', 'mdi-package-variant-closed', 'primary'),
+    ('solicitud_nueva', {}, 'Nueva solicitud', 'Pedir material para un trabajo', 'mdi-cart-plus', 'success'),
+    ('solicitudes', {}, 'Mis solicitudes', total_pendientes ~ (' pendiente' if total_pendientes == 1 else ' pendientes') ~ ' de respuesta', 'mdi-clipboard-text-outline', 'info'),
+    ('alertas', {}, 'Alertas', 'Piezas agotadas o con stock bajo', 'mdi-alert-outline', 'secondary'),
+  ] %}
+{% endif %}
+
+<!-- Accesos rápidos -->
+<div class="row">
+  {% for ruta, parametros, titulo, detalle, icono, color in accesos %}
+  <div class="col-xl-3 col-md-6">
+    <a class="tarjeta-acceso" href="{{ url_for(ruta, **parametros) }}">
+      <div class="card card-default bg-{{ color }}">
+        <div class="d-flex flex-column align-items-center text-center p-5">
+          <div class="icon-md bg-white rounded-circle mb-3">
+            <i class="mdi {{ icono }} text-{{ color }}"></i>
+          </div>
+          <span class="h4 d-block text-white mb-1">{{ titulo }}</span>
+          <p class="text-white">{{ detalle }}</p>
+        </div>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="row">
+  <!-- Resumen general -->
+  <div class="col-xl-7">
+    <div class="card card-default">
+      <div class="card-header">
+        <h2>Resumen general</h2>
+        <span>{{ conteo.unidades }} unidades en el almacén</span>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-6 col-md-3 mb-4">
+            <a class="resumen-dato bg-primary" href="{{ url_for('piezas') }}">
+              <span>Total de piezas</span>
+              <strong>{{ conteo.total }}</strong>
+            </a>
+          </div>
+          <div class="col-6 col-md-3 mb-4">
+            <a class="resumen-dato bg-success" href="{{ url_for('piezas', estado='disponible') }}">
+              <span>En stock</span>
+              <strong>{{ conteo.disponibles }}</strong>
+            </a>
+          </div>
+          <div class="col-6 col-md-3 mb-4">
+            <a class="resumen-dato bg-warning" href="{{ url_for('piezas', estado='bajo') }}">
+              <span>Stock bajo</span>
+              <strong>{{ conteo.bajas }}</strong>
+            </a>
+          </div>
+          <div class="col-6 col-md-3 mb-4">
+            <a class="resumen-dato bg-danger" href="{{ url_for('piezas', estado='agotada') }}">
+              <span>Agotadas</span>
+              <strong>{{ conteo.agotadas }}</strong>
+            </a>
+          </div>
+        </div>
+        <!-- Gráfica de dona (JavaScript con ApexCharts, incluido en la plantilla) -->
+        <div id="grafica-estados" role="img"
+             aria-label="De {{ conteo.total }} piezas, {{ conteo.disponibles }} están en stock, {{ conteo.bajas }} con stock bajo y {{ conteo.agotadas }} agotadas"
+             data-disponibles="{{ conteo.disponibles }}" data-bajas="{{ conteo.bajas }}"
+             data-agotadas="{{ conteo.agotadas }}"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alertas de inventario -->
+  <div class="col-xl-5">
+    <div class="card card-default">
+      <div class="card-header">
+        <h2>Alertas de inventario</h2>
+        {% if total_alertas %}<span class="badge badge-danger">{{ total_alertas }}</span>{% endif %}
+      </div>
+      <div class="card-body">
+        {% if alertas %}
+        <table class="table table-product">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Descripción</th>
+              <th class="text-right">Stock</th>
+              <th class="text-right">Mínimo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in alertas %}
+            <tr>
+              <td class="text-nowrap">
+                {% if p.estado == 'agotada' %}
+                <i class="mdi mdi-close-circle-outline text-danger" title="Agotada"></i>
+                {% else %}
+                <i class="mdi mdi-alert-outline text-warning" title="Stock bajo"></i>
+                {% endif %}
+                <span class="text-dark font-weight-bold">{{ p.codigo }}</span>
+              </td>
+              <td>{{ p.nombre }}</td>
+              <td class="text-right font-weight-bold {{ 'text-danger' if p.estado == 'agotada' else 'text-dark' }}">{{ p.cantidad }}</td>
+              <td class="text-right">{{ p.minimo }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <a class="text-primary font-weight-bold d-block text-right mt-3" href="{{ url_for('alertas') }}">
+          Ver todas las alertas ({{ total_alertas }})
+        </a>
+        {% else %}
+        <div class="alert alert-success alert-icon mb-0" role="status">
+          <i class="mdi mdi-check-circle-outline"></i> Todas las piezas están por encima de su mínimo.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-12">
+
+    {% if rol == 'tecnico' %}
+    <!-- Vista del técnico -->
+    <div class="card card-default">
+      <div class="card-header align-items-center">
+        <h2>Mis solicitudes</h2>
+        <a href="{{ url_for('solicitud_nueva') }}" class="btn btn-primary btn-pill">
+          <i class="mdi mdi-plus"></i> Nueva solicitud
+        </a>
+      </div>
+      <div class="card-body">
+        {% if mis_solicitudes %}
+        <div class="table-responsive">
+          <table class="table table-product">
+            <thead>
+              <tr><th>Folio</th><th>Fecha</th><th>Pieza</th><th class="text-right">Cantidad</th><th>Estado</th><th>Respuesta</th></tr>
+            </thead>
+            <tbody>
+              {% for s in mis_solicitudes %}
+              <tr>
+                <td class="text-dark font-weight-bold text-nowrap">{{ s.id|folio }}</td>
+                <td class="text-nowrap">{{ s.fecha|fecha }}</td>
+                <td>{{ s.pieza }}</td>
+                <td class="text-right">{{ s.cantidad }}</td>
+                <td>{{ estado_solicitud(s.estado) }}</td>
+                <td>
+                  {% if s.estado == 'pendiente' %}En espera de autorización del gerente
+                  {% elif s.estado == 'aprobada' %}Autorizada por {{ s.gerente }}
+                  {% else %}{{ s.comentario }}{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <a class="text-primary font-weight-bold d-block text-right mt-3" href="{{ url_for('solicitudes') }}">Ver todas mis solicitudes</a>
+        {% else %}
+        <p class="mb-0">Todavía no has pedido material. Usa «Nueva solicitud» cuando necesites una pieza para un trabajo.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    {% elif rol == 'gerente' %}
+    <!-- Vista del gerente -->
+    <div class="card card-default">
+      <div class="card-header align-items-center">
+        <h2>Solicitudes por autorizar</h2>
+        <a href="{{ url_for('solicitudes') }}" class="btn btn-outline-primary btn-pill">Ver todas</a>
+      </div>
+      <div class="card-body">
+        {% if por_autorizar %}
+        <div class="table-responsive">
+          <table class="table table-product">
+            <thead>
+              <tr><th>Folio</th><th>Solicitante</th><th>Pieza</th><th class="text-right">Cantidad</th><th class="text-right">Existencia</th><th>Para qué se usará</th><th></th></tr>
+            </thead>
+            <tbody>
+              {% for s in por_autorizar %}
+              <tr>
+                <td class="text-dark font-weight-bold text-nowrap">{{ s.id|folio }}</td>
+                <td>{{ s.tecnico }}</td>
+                <td>{{ s.pieza }}</td>
+                <td class="text-right">{{ s.cantidad }}</td>
+                <td class="text-right {{ 'text-danger font-weight-bold' if s.existencia < s.cantidad }}">{{ s.existencia }}</td>
+                <td>{{ s.motivo }}</td>
+                <td class="text-nowrap text-right">{{ responder_solicitud(s, 'inicio') }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="alert alert-success alert-icon mb-0" role="status">
+          <i class="mdi mdi-check-circle-outline"></i> No hay solicitudes pendientes de autorizar.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% else %}
+    <!-- Vista del administrador -->
+    <div class="card card-default">
+      <div class="card-header align-items-center">
+        <h2>Últimos movimientos</h2>
+        <a href="{{ url_for('movimientos') }}" class="btn btn-outline-primary btn-pill">Ver todos</a>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-product">
+            <thead>
+              <tr><th>Fecha</th><th>Tipo</th><th>Pieza</th><th class="text-right">Cantidad</th><th class="text-right">Existencia</th><th>Motivo</th><th>Registró</th></tr>
+            </thead>
+            <tbody>
+              {% for m in ultimos_movimientos %}
+              <tr>
+                <td class="text-nowrap">{{ m.fecha|fecha }}</td>
+                <td>{{ tipo_movimiento(m.tipo) }}</td>
+                <td><span class="text-dark font-weight-bold">{{ m.codigo }}</span> {{ m.pieza }}</td>
+                <td class="text-right text-nowrap">{{ '+' if m.tipo == 'entrada' else '−' }}{{ m.cantidad }}</td>
+                <td class="text-right text-nowrap">{{ m.existencia_anterior }} → {{ m.existencia_nueva }}</td>
+                <td>{{ m.motivo }}{% if m.entregado_a %}. Entregado a {{ m.entregado_a }}{% endif %}</td>
+                <td>{{ m.usuario }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+<!-- Flujo del proceso de una solicitud de piezas -->
+<div class="row">
+  <div class="col-12">
+    <div class="card card-default">
+      <div class="card-header">
+        <h2>Flujo del proceso</h2>
+        <span>Solicitud de piezas</span>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          {% for icono, color, texto in [
+            ('mdi-worker', 'primary', 'El técnico crea una solicitud de piezas.'),
+            ('mdi-account-check-outline', 'info', 'El gerente la revisa y la autoriza o la rechaza.'),
+            ('mdi-package-variant-closed', 'success', 'Al autorizar, el sistema descuenta las existencias automáticamente.'),
+            ('mdi-file-document-box-outline', 'secondary', 'Se registra el movimiento de salida y se puede generar un reporte.'),
+          ] %}
+          <div class="col-xl-3 col-md-6 mb-4 mb-xl-0">
+            <div class="d-flex align-items-start">
+              <div class="icon-md bg-{{ color }} rounded-circle mr-3">
+                <i class="mdi {{ icono }}"></i>
+              </div>
+              <p class="mb-0"><span class="text-dark font-weight-bold">Paso {{ loop.index }}.</span> {{ texto }}</p>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

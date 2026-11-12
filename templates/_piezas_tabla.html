@@ -1,0 +1,74 @@
+{# Tabla de piezas. Se usa dentro de piezas.html y también sola, cuando el
+   JavaScript la pide para actualizar los resultados sin recargar la página. #}
+{% from "_macros.html" import estado_pieza with context %}
+{% set rol = usuario_actual.rol %}
+
+<p class="mb-3">
+  {% if piezas|length == total %}
+  Se muestran las {{ total }} piezas del catálogo.
+  {% else %}
+  {{ piezas|length }} de {{ total }} piezas coinciden con la búsqueda.
+  <a class="text-primary font-weight-bold" href="{{ url_for('piezas') }}">Quitar filtros</a>
+  {% endif %}
+</p>
+
+{% if piezas %}
+<div class="table-responsive">
+  <table class="table table-product">
+    <thead>
+      <tr>
+        <th>Código</th>
+        <th>Nombre</th>
+        <th>Categoría</th>
+        <th class="text-right">Cantidad</th>
+        <th class="text-right">Mínimo</th>
+        <th>Ubicación</th>
+        <th>Estado</th>
+        {% if rol != 'gerente' %}<th class="text-right">Acciones</th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in piezas %}
+      <tr>
+        <td class="text-dark font-weight-bold text-nowrap">{{ p.codigo }}</td>
+        <td class="text-dark">{{ p.nombre }}</td>
+        <td>{{ p.categoria }}</td>
+        <td class="text-right font-weight-bold {{ 'text-danger' if p.estado == 'agotada' else 'text-dark' }}">{{ p.cantidad }}</td>
+        <td class="text-right">{{ p.minimo }}</td>
+        <td>{{ p.ubicacion }}</td>
+        <td>{{ estado_pieza(p.estado) }}</td>
+
+        {% if rol == 'administrador' %}
+        <td class="text-right text-nowrap">
+          <a class="btn btn-sm btn-outline-primary" href="{{ url_for('pieza_editar', pieza_id=p.id) }}"
+             title="Editar {{ p.codigo }}"><i class="mdi mdi-pencil mdi-18px"></i><span class="sr-only">Editar {{ p.codigo }}</span></a>
+          <a class="btn btn-sm btn-outline-success" href="{{ url_for('movimiento_nuevo', pieza=p.id) }}"
+             title="Registrar entrada o salida de {{ p.codigo }}"><i class="mdi mdi-swap-horizontal mdi-18px"></i><span class="sr-only">Registrar movimiento de {{ p.codigo }}</span></a>
+          <form method="post" action="{{ url_for('pieza_eliminar', pieza_id=p.id) }}" class="d-inline">
+            <input type="hidden" name="csrf" value="{{ token_csrf() }}">
+            <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar {{ p.codigo }}"
+                    data-confirmar="{{ p.codigo }}, {{ p.nombre }}, dejará de aparecer en el inventario.{% if p.cantidad %} Sus {{ p.cantidad }} unidades se registrarán como salida.{% endif %} El historial de movimientos y solicitudes se conserva."
+                    data-titulo="Eliminar la pieza {{ p.codigo }}" data-boton="Eliminar pieza" data-clase="btn-danger">
+              <i class="mdi mdi-delete mdi-18px"></i><span class="sr-only">Eliminar {{ p.codigo }}</span>
+            </button>
+          </form>
+        </td>
+        {% elif rol == 'tecnico' %}
+        <td class="text-right text-nowrap">
+          {% if p.cantidad > 0 %}
+          <a class="btn btn-sm btn-primary btn-pill" href="{{ url_for('solicitud_nueva', pieza=p.id) }}">Solicitar</a>
+          {% else %}
+          <span class="text-danger">Sin existencias</span>
+          {% endif %}
+        </td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="alert alert-info alert-icon mb-0" role="status">
+  <i class="mdi mdi-information-outline"></i> Ninguna pieza coincide con la búsqueda. Prueba con otra palabra o quita los filtros.
+</div>
+{% endif %}

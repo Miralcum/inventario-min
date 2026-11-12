@@ -1,0 +1,65 @@
+{% extends "layout.html" %}
+{% block titulo %}Piezas{% endblock %}
+
+{% block contenido %}
+{% set rol = usuario_actual.rol %}
+<div class="card card-default">
+  <div class="card-header align-items-center">
+    <h2>Piezas y refacciones</h2>
+    {% if rol == 'administrador' %}
+    <a href="{{ url_for('pieza_nueva') }}" class="btn btn-primary btn-pill">
+      <i class="mdi mdi-plus"></i> Agregar pieza
+    </a>
+    {% elif rol == 'tecnico' %}
+    <a href="{{ url_for('solicitud_nueva') }}" class="btn btn-primary btn-pill">
+      <i class="mdi mdi-cart-plus"></i> Nueva solicitud
+    </a>
+    {% endif %}
+  </div>
+  <div class="card-body">
+
+    <!-- Búsqueda y filtros. Con JavaScript la tabla se actualiza mientras escribes;
+         sin JavaScript funciona igual con el botón Buscar. -->
+    <form id="filtro-piezas" method="get" action="{{ url_for('piezas') }}" class="mb-4" role="search">
+      <div class="form-row align-items-end">
+        <div class="form-group col-lg-5">
+          <label for="q">Buscar</label>
+          <div class="input-group">
+            <div class="input-group-prepend">
+              <span class="input-group-text"><i class="mdi mdi-magnify"></i></span>
+            </div>
+            <input type="search" class="form-control" id="q" name="q" value="{{ q }}" maxlength="60"
+                   placeholder="Código, nombre o ubicación" autocomplete="off">
+          </div>
+        </div>
+        <div class="form-group col-sm-6 col-lg-3">
+          <label for="categoria">Categoría</label>
+          <select class="form-control" id="categoria" name="categoria">
+            <option value="">Todas</option>
+            {% for c in categorias %}
+            <option value="{{ c }}" {% if c == categoria %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group col-sm-6 col-lg-2">
+          <label for="estado">Estado</label>
+          <select class="form-control" id="estado" name="estado">
+            <option value="">Todos</option>
+            <option value="disponible" {% if estado == 'disponible' %}selected{% endif %}>En stock</option>
+            <option value="bajo" {% if estado == 'bajo' %}selected{% endif %}>Stock bajo</option>
+            <option value="agotada" {% if estado == 'agotada' %}selected{% endif %}>Agotada</option>
+            <option value="alerta" {% if estado == 'alerta' %}selected{% endif %}>Con alerta</option>
+          </select>
+        </div>
+        <div class="form-group col-lg-2">
+          <button type="submit" class="btn btn-outline-primary btn-pill btn-block">Buscar</button>
+        </div>
+      </div>
+    </form>
+
+    <div id="tabla-piezas" aria-live="polite">
+      {% include "_piezas_tabla.html" %}
+    </div>
+  </div>
+</div>
+{% endblock %}

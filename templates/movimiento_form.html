@@ -1,0 +1,86 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import campo with context %}
+{% block titulo %}Registrar movimiento{% endblock %}
+
+{% block contenido %}
+<div class="row">
+  <div class="col-xl-8">
+    <div class="card card-default">
+      <div class="card-header">
+        <h2>Entrada o salida de material</h2>
+      </div>
+      <div class="card-body">
+        {% if errores %}
+        <div class="alert alert-danger alert-icon" role="alert">
+          <i class="mdi mdi-alert-circle-outline"></i> El movimiento no se registró. Revisa los campos marcados en rojo.
+        </div>
+        {% endif %}
+
+        <form method="post" id="formulario-movimiento">
+          <input type="hidden" name="csrf" value="{{ token_csrf() }}">
+
+          <div class="form-group">
+            <label for="pieza_id">Pieza</label>
+            <select class="form-control{% if errores.pieza_id %} is-invalid{% endif %}" id="pieza_id" name="pieza_id" required>
+              <option value="">Elige una pieza</option>
+              {% for p in piezas %}
+              <option value="{{ p.id }}" data-existencia="{{ p.cantidad }}"
+                      {% if p.id|string == datos.pieza_id|string %}selected{% endif %}>
+                {{ p.nombre }} ({{ p.codigo }}), existencia {{ p.cantidad }}
+              </option>
+              {% endfor %}
+            </select>
+            {% if errores.pieza_id %}<div class="invalid-feedback">{{ errores.pieza_id }}</div>{% endif %}
+          </div>
+
+          <div class="form-group">
+            <label class="d-block">Tipo de movimiento</label>
+            <div class="custom-control custom-radio d-inline-block mr-5 mb-2">
+              <input type="radio" id="tipo-entrada" name="tipo" value="entrada" class="custom-control-input"
+                     {% if datos.tipo != 'salida' %}checked{% endif %}>
+              <label class="custom-control-label" for="tipo-entrada">Entrada (compra, devolución)</label>
+            </div>
+            <div class="custom-control custom-radio d-inline-block mb-2">
+              <input type="radio" id="tipo-salida" name="tipo" value="salida" class="custom-control-input"
+                     {% if datos.tipo == 'salida' %}checked{% endif %}>
+              <label class="custom-control-label" for="tipo-salida">Salida (ajuste, pieza dañada)</label>
+            </div>
+            <span class="mt-2 d-block">Las salidas por solicitud de un técnico se registran solas cuando el gerente la autoriza.</span>
+          </div>
+
+          <div class="form-row">
+            <div class="col-md-4">
+              {{ campo('cantidad', 'Cantidad', datos.cantidad, errores, tipo='number',
+                       atributos='min="1" max="100000" step="1" inputmode="numeric" required') }}
+            </div>
+            <div class="col-md-8">
+              <div class="form-group">
+                <label>Resultado</label>
+                <!-- El JavaScript calcula aquí cómo quedará la existencia -->
+                <p class="form-control-plaintext text-dark font-weight-bold" id="vista-previa" aria-live="polite">
+                  Elige la pieza y la cantidad para ver cómo quedará la existencia.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {{ campo('motivo', 'Motivo', datos.motivo, errores,
+                   ayuda='Ejemplos: compra a proveedor, devolución de un técnico, ajuste por conteo físico.',
+                   atributos='maxlength="120" minlength="5" required list="motivos-comunes" autocomplete="off"') }}
+          <datalist id="motivos-comunes">
+            <option value="Compra a proveedor">
+            <option value="Devolución de material no utilizado">
+            <option value="Ajuste por conteo físico">
+            <option value="Ajuste: pieza dañada o caducada">
+          </datalist>
+
+          <div class="form-footer mt-6">
+            <button type="submit" class="btn btn-primary btn-pill">Registrar movimiento</button>
+            <a href="{{ url_for('movimientos') }}" class="btn btn-light btn-pill">Cancelar</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
